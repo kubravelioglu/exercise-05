@@ -1,0 +1,102 @@
+---
+title: "Challenge1_2"
+format: html
+editor: visual
+---
+***Challange 1***
+```{r}
+#Step 1
+library(tidyverse)
+d <- read.csv("https://raw.githubusercontent.com/difiore/ada-datasets/main/IMDB-movies.csv")
+
+glimpse(d)
+
+#Step 2
+  
+d <- d |>
+  filter(startYear >= 1920 & startYear <= 1979 & runtimeMinutes >= 60 & runtimeMinutes <= 180) |>
+  mutate(decade = paste0(((startYear - 1900) %/% 10) * 10, "s"))
+  
+nrow(d)
+
+#Step 3
+  
+ggplot(d, aes(x = runtimeMinutes)) +
+  geom_histogram(binwidth = 10, fill = "steelblue", color = "black") +
+  facet_wrap(~ decade) +
+  labs(title = "Movie Runtime Distribution by Decades",
+       x = "RuntimeMinutes",
+       y = "Frequency") +
+  theme_minimal()
+
+#Step 4
+
+results <- d |> group_by(decade) |>
+  summarise(pop_mean = mean(runtimeMinutes), 
+            pop_sd = sd (runtimeMinutes))
+
+#Step 5
+  
+single_sample <- d |>
+  group_by(decade) |>
+  slice_sample(n = 100) |>
+  summarise(est_pop_mean = mean(runtimeMinutes),
+            est_pop_sd = sd(runtimeMinutes))
+
+#Step 6
+single_sample <- single_sample |>
+  mutate(se = est_pop_sd / sqrt(100))
+
+#Step 7
+pop_stats <- d |> 
+  group_by(decade) |> 
+  summarise(pop_mean = mean(runtimeMinutes),
+            pop_sd   = sd(runtimeMinutes),
+            pop_se   = pop_sd / sqrt(100))
+
+comparison <- left_join(single_sample, pop_stats, by = "decade")
+
+
+#Step 8
+
+library(dplyr)
+library(infer)
+
+sampling_distribution <- d |> 
+  group_by(decade) |>
+  rep_sample_n(size = 100, reps = 1000, replace = FALSE) |>
+  group_by(decade, replicate) |>
+  summarise(sample_mean = mean(runtimeMinutes),
+            sample_sd   = sd(runtimeMinutes)) |>
+  ungroup()
+
+#Step 9 
+
+summary <- sampling_distribution |>
+  group_by(decade) |>
+  summarise(distribution_mean = mean(sample_mean),
+            distribution_sd   = sd(sample_mean))
+
+ggplot(sampling_distribution, aes(x = sample_mean)) +
+  geom_histogram(binwidth = 1, fill = "purple", color = "black") +
+  facet_wrap(~ decade) +
+  labs(title = "Sampling Distribution of Sample Means by Decade",
+       x = "Sample Mean of RuntimeMinutes",
+       y = "Frequency") +
+  theme_minimal()
+
+#What shape does it have?
+#The shape of the plot is expected to be approximately bell-shaped which means a normal distribution.
+
+#Step 10 
+  
+sampling_distribution_final <- sampling_distribution |> 
+  group_by(decade) |>
+  summarise(se_sampling = sd(sample_mean))
+
+final_comparison <- comparison |>
+  left_join(sampling_distribution_final, by = "decade")
+
+final_comparison
+
+```
