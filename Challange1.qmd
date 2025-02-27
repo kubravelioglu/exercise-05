@@ -100,30 +100,3 @@ final_comparison <- comparison |>
 final_comparison
 ```
 
-***Challenge 2***
-```{r}
-#Step 1
-library(tidyverse)
-z <- read.csv("https://raw.githubusercontent.com/difiore/ada-datasets/main/zombies.csv")
-
-glimpse(d)
-
-#Step 2
-
-pop_stats <- z %>%
-  summarise(
-    mean_height = mean(height),
-    sd_height = sqrt(sum((height - mean_height)^2) / length(height)),
-    
-    mean_weight = mean(weight),
-    sd_weight = sqrt(sum((weight - mean_weight)^2) / length(weight)),
-    
-    mean_age = mean(age),
-    sd_age = sqrt(sum((age - mean_age)^2) / length(age)),
-    
-    mean_zombies_killed = mean(zombies_killed),
-    sd_zombies_killed = sqrt(sum((zombies_killed - mean_zombies_killed)^2) / length(zombies_killed)),
-
-
-
-```
