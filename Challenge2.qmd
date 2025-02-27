@@ -1,0 +1,283 @@
+---
+title: "Challenge_2"
+format: html
+editor: visual
+---
+
+***Challenge 2***
+
+```{r}
+#Step 1
+library(tidyverse)
+z <- read.csv("https://raw.githubusercontent.com/difiore/ada-datasets/main/zombies.csv")
+
+glimpse(z)
+```
+
+#Step 2
+
+```{r}
+
+pop_sd <- function(x) {
+  sqrt(sum((x - mean(x))^2) / length(x))
+}
+
+pop_stats <- z |>
+  summarise(
+    mean_height = mean(height),
+    sd_height = pop_sd(height),  
+
+    mean_weight = mean(weight),
+    sd_weight = pop_sd(weight),
+
+    mean_age = mean(age),
+    sd_age = pop_sd(age),
+
+    mean_zombies_killed = mean(zombies_killed),
+    sd_zombies_killed = pop_sd(zombies_killed),
+
+    mean_education = mean(years_of_education),
+    sd_education = pop_sd(years_of_education)
+  )
+
+print(pop_stats)
+
+```
+
+\***Step 3**
+
+```{r}
+
+z |>
+  pivot_longer(cols = c(height, weight, age, zombies_killed, years_of_education),
+               names_to = "variable", values_to = "measurement") |>  #
+  ggplot(aes(x = gender, y = measurement, fill = gender)) +
+  geom_boxplot() +
+  facet_wrap(~variable, scales = "free") +
+  labs(title = "Variables by Gender", y = "Measurement") + 
+  theme_minimal()
+```
+
+***Step 4***
+
+```{r}
+
+# Scatterplot: Height vs Age
+ggplot(z, aes(x = age, y = height, color = gender)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Height vs Age", x = "Age", y = "Height") +
+  theme_minimal()
+
+# Scatterplot: Weight vs Age
+ggplot(z, aes(x = age, y = weight, color = gender)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Weight vs Age", x = "Age", y = "Weight") +
+  theme_minimal()
+```
+
+*** Do these variables seem to be related? In what way?***
+#There seems to be a positive correlation between height and age, as well as weight and age. As individuals grow older, they tend to become taller and heavier.
+
+***Step 5***
+
+```{r}
+
+# Height
+hist(z$height, main = "Histogram of Height", xlab = "Height", col = "steelblue")
+qqnorm(z$height, main = "Q-Q Plot of Height")
+
+
+# Weight
+hist(z$weight, main = "Histogram of Weight", xlab = "Weight", col = "steelblue")
+qqnorm(z$weight, main = "Q-Q Plot of Weight")
+
+
+# Age
+hist(z$age, main = "Histogram of Age", xlab = "Age", col = "steelblue")
+qqnorm(z$age, main = "Q-Q Plot of Age")
+
+
+# Zombies Killed
+hist(z$zombies_killed, main = "Histogram of Zombies Killed", xlab = "Zombies Killed", col = "steelblue")
+qqnorm(z$zombies_killed, main = "Q-Q Plot of Zombies Killed")
+
+
+# Years of Education
+hist(z$years_of_education, main = "Histogram of Years of Education", xlab = "Years of Education", col = "steelblue")
+qqnorm(z$years_of_education, main = "Q-Q Plot of Years of Education")
+```
+*** Do these variables seem to be related? In what way?***
+
+#zombies_killed and years of education do not have normal distributions.
+
+***Step 6 ***
+
+```{r}
+
+z_sample <- slice_sample(z, n = 50)
+
+# Mean and SD
+sample_stats <- z_sample |>
+  summarise(
+    mean_height = mean(height),
+    sd_height = sd(height),
+
+    mean_weight = mean(weight),
+    sd_weight = sd(weight),
+
+    mean_age = mean(age),
+    sd_age = sd(age),
+
+    mean_zombies_killed = mean(zombies_killed),
+    sd_zombies_killed = sd(zombies_killed),
+
+    mean_education = mean(years_of_education),
+    sd_education = sd(years_of_education)
+  )
+
+
+n <- 50  
+
+# SE
+se <- sample_stats |>
+  mutate(
+    se_height = sd_height / sqrt(n),
+    se_weight = sd_weight / sqrt(n),
+    se_age = sd_age / sqrt(n),
+    se_zombies_killed = sd_zombies_killed / sqrt(n),
+    se_education = sd_education / sqrt(n)
+  )
+
+# CI
+CI_norm <- se |>
+  reframe(
+    CI_height = mean_height + qnorm(c(0.025, 0.975)) * se_height,
+    CI_weight = mean_weight + qnorm(c(0.025, 0.975)) * se_weight,
+    CI_age = mean_age + qnorm(c(0.025, 0.975)) * se_age,
+    CI_zombies_killed = mean_zombies_killed + qnorm(c(0.025, 0.975)) * se_zombies_killed,
+    CI_education = mean_education + qnorm(c(0.025, 0.975)) * se_education
+  )
+
+# Print sample statistics
+
+print(sample_stats)
+print(se)
+print(CI_norm)
+
+
+```
+
+***Step 7***
+```{r}
+num_samples <- 199  
+
+numeric_data <- z |> select(where(is.numeric), -id)
+
+
+resampled_means <- matrix(NA, nrow = num_samples, ncol = ncol(numeric_data))
+
+
+for (i in 1:num_samples) {
+  sampled_subset <- slice_sample(numeric_data, n = 50)  
+  resampled_means[i, ] <- colMeans(sampled_subset)  
+}
+
+resampled_means <- as.data.frame(resampled_means)
+
+
+colnames(resampled_means) <- c("avg_height", "avg_weight", "avg_zombies_killed", "avg_education_years", "avg_age")
+
+first_sample_means <- data.frame(
+  avg_height = sample_stats$mean_height,  
+  avg_weight = sample_stats$mean_weight,  
+  avg_zombies_killed = sample_stats$mean_zombies_killed,  
+  avg_education_years = sample_stats$mean_education,  
+  avg_age = sample_stats$mean_age  
+)
+
+
+resampled_means <- rbind(resampled_means, first_sample_means)
+
+sampling_summary_stats <- data.frame(
+  mean_values = colMeans(resampled_means),  
+  standard_deviation = apply(resampled_means, 2, sd)  
+)
+
+comparison <- data.frame(
+  Variable = c("Height", "Weight", "Age", "Zombies Killed", "Years of Education"),
+  SE_Step6 = c(se$se_height, se$se_weight, se$se_age, se$se_zombies_killed, se$se_education),
+  SD_Sampling_Step7 = c(
+    sampling_summary_stats$standard_deviation[1],
+    sampling_summary_stats$standard_deviation[2],
+    sampling_summary_stats$standard_deviation[5],
+    sampling_summary_stats$standard_deviation[3],
+    sampling_summary_stats$standard_deviation[4]
+  )
+)
+
+print(comparison)
+
+
+```
+
+***What are the means and standard deviations of the sampling distribution for each variable? How do the standard deviations of the sampling distribution for each variable compare to the standard errors estimated from your first sample of size 50?***
+
+#Based on the data comparison, small differences appeared. However, the SD values are close to the SE values, indicating that SE is a good estimate of the variability in sample means.
+
+***Step 8***
+```{r}
+
+# Height mean
+hist(resampled_means$avg_height, 
+     main = "Sampling Distribution of Mean Height", 
+     xlab = "Sample Mean of Height", 
+     col = "steelblue", border = "black")
+
+# Weight mean
+hist(resampled_means$avg_weight, 
+     main = "Sampling Distribution of Mean Weight", 
+     xlab = "Sample Mean of Weight", 
+     col = "steelblue", border = "black")
+
+# Zombies killed mean
+hist(resampled_means$avg_zombies_killed, 
+     main = "Sampling Distribution of Mean Zombies Killed", 
+     xlab = "Sample Mean of Zombies Killed", 
+     col = "steelblue", border = "black")
+
+# Years of education mean
+hist(resampled_means$avg_education_years, 
+     main = "Sampling Distribution of Mean Years of Education", 
+     xlab = "Sample Mean of Years of Education", 
+     col = "steelblue", border = "black")
+
+# Age mean
+hist(resampled_means$avg_age, 
+     main = "Sampling Distribution of Mean Age", 
+     xlab = "Sample Mean of Age", 
+     col = "steelblue", border = "black")
+
+
+
+```
+
+***What do they look like? Are they normally distributed? What about for those variables that you concluded were not originally drawn from a normal distribution?***
+
+#The distributions for Height, Weight, and Age showed a normal distribution. Zombies Killed and Years of Education show slight skewness but still approximate normality due to the Central Limit Theorem (CLT). According to the CLT, if a variable is normally distributed in the population, its sample mean distribution will also be normal. If the sample size is large enough, its sample mean distribition tends to become normal. The originally skewed variables, Zombies Killed and Years of Education, now show a more normal shape compared to their original distribution. 
+
+***Step 9***
+```{r}
+
+
+
+
+```
+
+
+***Step 10***
+```{r}
+
+
+
+```
+
