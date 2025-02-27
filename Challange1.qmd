@@ -1,9 +1,11 @@
 ---
-title: "Challenge1_2"
+title: "Challenge1"
 format: html
 editor: visual
 ---
+
 ***Challange 1***
+
 ```{r}
 #Step 1
 library(tidyverse)
@@ -99,4 +101,3 @@ final_comparison <- comparison |>
 
 final_comparison
 ```
-
