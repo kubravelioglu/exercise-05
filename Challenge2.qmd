@@ -9,38 +9,37 @@ editor: visual
 ```{r}
 #Step 1
 library(tidyverse)
-z <- read.csv("https://raw.githubusercontent.com/difiore/ada-datasets/main/zombies.csv")
 
-glimpse(z)
+
+url <- "https://raw.githubusercontent.com/difiore/ada-datasets/main/zombies.csv"
+
+z <- read_csv(url)
+
+glimpse(z)    
+head(z)      
+summary(z)    
+
+
+
+colnames(z)
 ```
 
 #Step 2
 
 ```{r}
 
-pop_sd <- function(x) {
-  sqrt(sum((x - mean(x))^2) / length(x))
-}
+numeric_cols <- z %>%
+  select(where(is.numeric)) %>%
+  select(-id) %>%  
+  colnames()
 
-pop_stats <- z |>
-  summarise(
-    mean_height = mean(height),
-    sd_height = pop_sd(height),  
+z_summary <- z %>%
+  summarize(across(all_of(numeric_cols), list(
+    mean = ~mean(.x, na.rm = TRUE),
+    sd = ~sqrt(sum((.x - mean(.x, na.rm = TRUE))^2, na.rm = TRUE) / n())
+  ), .names = "{.col}_{.fn}"))
 
-    mean_weight = mean(weight),
-    sd_weight = pop_sd(weight),
-
-    mean_age = mean(age),
-    sd_age = pop_sd(age),
-
-    mean_zombies_killed = mean(zombies_killed),
-    sd_zombies_killed = pop_sd(zombies_killed),
-
-    mean_education = mean(years_of_education),
-    sd_education = pop_sd(years_of_education)
-  )
-
-print(pop_stats)
+print(z_summary)
 
 ```
 
@@ -48,31 +47,43 @@ print(pop_stats)
 
 ```{r}
 
-z |>
-  pivot_longer(cols = c(height, weight, age, zombies_killed, years_of_education),
-               names_to = "variable", values_to = "measurement") |>  #
-  ggplot(aes(x = gender, y = measurement, fill = gender)) +
-  geom_boxplot() +
-  facet_wrap(~variable, scales = "free") +
-  labs(title = "Variables by Gender", y = "Measurement") + 
-  theme_minimal()
+numeric_cols <- z %>%
+  select(where(is.numeric)) %>%
+  colnames()
+
+for (var in numeric_cols) {
+  p <- ggplot(z, aes(x = gender, y = .data[[var]], fill = gender)) +
+    geom_boxplot() +
+    labs(title = paste("Boxplot of", var, "by Gender"),
+         x = "Gender",
+         y = var) +
+    theme_minimal() +
+    scale_fill_brewer(palette = "Set2")  
+  
+  print(p)
+}
 ```
 
 ***Step 4***
 
 ```{r}
 
-# Scatterplot: Height vs Age
 ggplot(z, aes(x = age, y = height, color = gender)) +
-  geom_point(alpha = 0.6) +
-  labs(title = "Height vs Age", x = "Age", y = "Height") +
-  theme_minimal()
+  geom_point(alpha = 0.6) +  
+  labs(title = "Height vs. Age by Gender",
+       x = "Age",
+       y = "Height") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")  
 
-# Scatterplot: Weight vs Age
+
 ggplot(z, aes(x = age, y = weight, color = gender)) +
   geom_point(alpha = 0.6) +
-  labs(title = "Weight vs Age", x = "Age", y = "Weight") +
-  theme_minimal()
+  labs(title = "Weight vs. Age by Gender",
+       x = "Age",
+       y = "Weight") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")
 ```
 
 *** Do these variables seem to be related? In what way?***
@@ -82,29 +93,34 @@ ggplot(z, aes(x = age, y = weight, color = gender)) +
 
 ```{r}
 
-# Height
-hist(z$height, main = "Histogram of Height", xlab = "Height", col = "steelblue")
-qqnorm(z$height, main = "Q-Q Plot of Height")
+numeric_cols <- z %>%
+  select(where(is.numeric)) %>%
+  select(-id) %>%  
+  colnames()
 
+for (var in numeric_cols) {
+  
+  # Histogram with Density Curve
+  p1 <- ggplot(z, aes(x = .data[[var]])) +
+    geom_histogram(aes(y = ..density..), bins = 30, fill = "steelblue", alpha = 0.7) +
+    geom_density(color = "red", size = 1) +  # Overlay density curve
+    labs(title = paste("Histogram of", var),
+         x = var,
+         y = "Density") +
+    theme_minimal()
+  
+  print(p1)
+  
+  # Q-Q Plot
+  p2 <- ggplot(z, aes(sample = .data[[var]])) +
+    stat_qq() +
+    stat_qq_line(color = "red") +
+    labs(title = paste("Q-Q Plot of", var)) +
+    theme_minimal()
+  
+  print(p2)
+}
 
-# Weight
-hist(z$weight, main = "Histogram of Weight", xlab = "Weight", col = "steelblue")
-qqnorm(z$weight, main = "Q-Q Plot of Weight")
-
-
-# Age
-hist(z$age, main = "Histogram of Age", xlab = "Age", col = "steelblue")
-qqnorm(z$age, main = "Q-Q Plot of Age")
-
-
-# Zombies Killed
-hist(z$zombies_killed, main = "Histogram of Zombies Killed", xlab = "Zombies Killed", col = "steelblue")
-qqnorm(z$zombies_killed, main = "Q-Q Plot of Zombies Killed")
-
-
-# Years of Education
-hist(z$years_of_education, main = "Histogram of Years of Education", xlab = "Years of Education", col = "steelblue")
-qqnorm(z$years_of_education, main = "Q-Q Plot of Years of Education")
 ```
 *** Do these variables seem to be related? In what way?***
 
@@ -114,108 +130,83 @@ qqnorm(z$years_of_education, main = "Q-Q Plot of Years of Education")
 
 ```{r}
 
-z_sample <- slice_sample(z, n = 50)
+set.seed(42)
 
-# Mean and SD
-sample_stats <- z_sample |>
-  summarise(
-    mean_height = mean(height),
-    sd_height = sd(height),
-
-    mean_weight = mean(weight),
-    sd_weight = sd(weight),
-
-    mean_age = mean(age),
-    sd_age = sd(age),
-
-    mean_zombies_killed = mean(zombies_killed),
-    sd_zombies_killed = sd(zombies_killed),
-
-    mean_education = mean(years_of_education),
-    sd_education = sd(years_of_education)
-  )
+sample_z <- z %>%
+  slice_sample(n = 50)
 
 
-n <- 50  
-
-# SE
-se <- sample_stats |>
-  mutate(
-    se_height = sd_height / sqrt(n),
-    se_weight = sd_weight / sqrt(n),
-    se_age = sd_age / sqrt(n),
-    se_zombies_killed = sd_zombies_killed / sqrt(n),
-    se_education = sd_education / sqrt(n)
-  )
+numeric_cols <- sample_z %>%
+  select(where(is.numeric)) %>%
+  select(-id) %>%  
+  colnames()
 
 # CI
-CI_norm <- se |>
-  reframe(
-    CI_height = mean_height + qnorm(c(0.025, 0.975)) * se_height,
-    CI_weight = mean_weight + qnorm(c(0.025, 0.975)) * se_weight,
-    CI_age = mean_age + qnorm(c(0.025, 0.975)) * se_age,
-    CI_zombies_killed = mean_zombies_killed + qnorm(c(0.025, 0.975)) * se_zombies_killed,
-    CI_education = mean_education + qnorm(c(0.025, 0.975)) * se_education
-  )
+compute_CI <- function(x) {
+  n <- length(x)
+  mean_x <- mean(x, na.rm = TRUE)  
+  sd_x <- sd(x, na.rm = TRUE)  
+  se_x <- sd_x / sqrt(n)
+  t_crit <- qt(0.975, df = n - 1)
+  
+  lower_CI <- mean_x - t_crit * se_x
+  upper_CI <- mean_x + t_crit * se_x
+  
+  return(tibble(
+    Mean = mean_x,
+    Sample_SD = sd_x,
+    Standard_Error = se_x,
+    Lower_CI = lower_CI,
+    Upper_CI = upper_CI
+  ))
+}
 
-# Print sample statistics
 
-print(sample_stats)
-print(se)
-print(CI_norm)
+ci_results <- sample_z %>%
+  summarize(across(all_of(numeric_cols), compute_CI, .names = "{.col}"))
+
+print(ci_results)
+
 
 
 ```
 
 ***Step 7***
 ```{r}
-num_samples <- 199  
 
-numeric_data <- z |> select(where(is.numeric), -id)
+library(tidyverse)
 
-
-resampled_means <- matrix(NA, nrow = num_samples, ncol = ncol(numeric_data))
+set.seed(42)
 
 
-for (i in 1:num_samples) {
-  sampled_subset <- slice_sample(numeric_data, n = 50)  
-  resampled_means[i, ] <- colMeans(sampled_subset)  
+numeric_cols <- z %>%
+  select(where(is.numeric)) %>%
+  select(-id) %>%  
+  colnames()
+
+
+get_sample_means <- function() {
+  sample_z <- z %>%
+    slice_sample(n = 50)  
+
+  sample_means <- sample_z %>%
+    summarize(across(all_of(numeric_cols), mean, na.rm = TRUE))  
+
+  return(sample_means)
 }
 
-resampled_means <- as.data.frame(resampled_means)
+
+sampling_distribution <- map_dfr(1:200, ~get_sample_means())
 
 
-colnames(resampled_means) <- c("avg_height", "avg_weight", "avg_zombies_killed", "avg_education_years", "avg_age")
-
-first_sample_means <- data.frame(
-  avg_height = sample_stats$mean_height,  
-  avg_weight = sample_stats$mean_weight,  
-  avg_zombies_killed = sample_stats$mean_zombies_killed,  
-  avg_education_years = sample_stats$mean_education,  
-  avg_age = sample_stats$mean_age  
-)
+sampling_sum_stats <- sampling_distribution %>%
+  summarise(across(everything(), sd))
 
 
-resampled_means <- rbind(resampled_means, first_sample_means)
+print(head(sampling_distribution))
 
-sampling_summary_stats <- data.frame(
-  mean_values = colMeans(resampled_means),  
-  standard_deviation = apply(resampled_means, 2, sd)  
-)
 
-comparison <- data.frame(
-  Variable = c("Height", "Weight", "Age", "Zombies Killed", "Years of Education"),
-  SE_Step6 = c(se$se_height, se$se_weight, se$se_age, se$se_zombies_killed, se$se_education),
-  SD_Sampling_Step7 = c(
-    sampling_summary_stats$standard_deviation[1],
-    sampling_summary_stats$standard_deviation[2],
-    sampling_summary_stats$standard_deviation[5],
-    sampling_summary_stats$standard_deviation[3],
-    sampling_summary_stats$standard_deviation[4]
-  )
-)
-
-print(comparison)
+print(sampling_sum_stats)
 
 
 ```
@@ -227,36 +218,18 @@ print(comparison)
 ***Step 8***
 ```{r}
 
-# Height mean
-hist(resampled_means$avg_height, 
-     main = "Sampling Distribution of Mean Height", 
-     xlab = "Sample Mean of Height", 
-     col = "steelblue", border = "black")
+sampling_distribution_long <- sampling_distribution %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Sample_Mean")
 
-# Weight mean
-hist(resampled_means$avg_weight, 
-     main = "Sampling Distribution of Mean Weight", 
-     xlab = "Sample Mean of Weight", 
-     col = "steelblue", border = "black")
 
-# Zombies killed mean
-hist(resampled_means$avg_zombies_killed, 
-     main = "Sampling Distribution of Mean Zombies Killed", 
-     xlab = "Sample Mean of Zombies Killed", 
-     col = "steelblue", border = "black")
-
-# Years of education mean
-hist(resampled_means$avg_education_years, 
-     main = "Sampling Distribution of Mean Years of Education", 
-     xlab = "Sample Mean of Years of Education", 
-     col = "steelblue", border = "black")
-
-# Age mean
-hist(resampled_means$avg_age, 
-     main = "Sampling Distribution of Mean Age", 
-     xlab = "Sample Mean of Age", 
-     col = "steelblue", border = "black")
-
+ggplot(sampling_distribution_long, aes(x = Sample_Mean, fill = Variable)) +
+  geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
+  facet_wrap(~ Variable, scales = "free", ncol = 2) +
+  labs(title = "Sampling Distributions of Means for Each Variable",
+       x = "Sample Mean",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 
 ```
@@ -267,8 +240,27 @@ hist(resampled_means$avg_age,
 
 ***Step 9***
 ```{r}
+calculate_CI_from_sampling_dist <- function(variable) {
+  
+  sample_means <- sampling_distribution_long %>%
+    filter(Variable == variable) %>%
+    pull(Sample_Mean)
+  
+  
+  lower_CI <- quantile(sample_means, 0.025)
+  upper_CI <- quantile(sample_means, 0.975)
+  
+  return(tibble(
+    Variable = variable,
+    Lower_CI = lower_CI,
+    Upper_CI = upper_CI
+  ))
+}
+
+ci_from_sampling_distribution <- map_dfr(numeric_cols, calculate_CI_from_sampling_dist)
 
 
+print(ci_from_sampling_distribution)
 
 
 ```
@@ -276,8 +268,35 @@ hist(resampled_means$avg_age,
 
 ***Step 10***
 ```{r}
+bootstrap_CI <- function(variable) {
+  
+  original_data <- sample_z[[variable]]
+  
+  bootstrap_means <- replicate(1000, {
+    sample(original_data, size = length(original_data), replace = TRUE) %>%
+      mean(na.rm = TRUE)
+  })
+  
+  
+  lower_CI <- quantile(bootstrap_means, 0.025)
+  upper_CI <- quantile(bootstrap_means, 0.975)
+  
+  return(tibble(
+    Variable = variable,
+    Lower_CI = lower_CI,
+    Upper_CI = upper_CI
+  ))
+}
 
+
+bootstrap_CIs <- map_dfr(numeric_cols, bootstrap_CI)
+
+
+print(bootstrap_CIs)
 
 
 ```
 
+***How does this compare to the CIs generated in Step 9?***
+
+CIs from Step 9 and Step 10 are similar, indicating consistency in the estimation of population means. 
